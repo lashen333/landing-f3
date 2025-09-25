@@ -1,35 +1,78 @@
-// src\components\dashboard\useAnalytics.ts
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 
+/* ---------- Shared types ---------- */
+
+export type ActionEvent =
+  | "CTA_Click"
+  | "SectionEnter"
+  | "SectionExit"
+  | "SectionTime"
+  | "Scrolled"
+  | "ReachedEnd";
+
+export type ActionRecord = {
+  sessionId: string;
+  section: string;
+  event: ActionEvent;
+  timeSpent?: number;
+  timestamp?: string; // ISO string
+};
+
+export type LabelCount = { label: string; count: number };
+
 export type Overview = {
   ok: true;
   updatedAt: string;
-  totals: { sessions: number; uniqueUsers: number; activeUsers30m: number; ctaClicks: number };
+  totals: {
+    sessions: number;
+    uniqueUsers: number;
+    activeUsers30m: number;
+    ctaClicks: number;
+  };
   charts?: {
     avgTimeBySection: { section: string; avgSeconds: number }[];
-    deviceBreakdown: { label: string; count: number }[];
-    sourceBreakdown: { label: string; count: number }[];
+    deviceBreakdown: LabelCount[];
+    sourceBreakdown: LabelCount[];
     geoTop: { location: string; count: number }[];
   };
 };
 
-                  
+type GeoResp = {
+  ok: true;
+  geo: { location: string; sessions: number; uniqueUsers: number }[];
+};
+
+type DevicesResp = {
+  ok: true;
+  devices: LabelCount[];
+};
+
+type ActionsResp = {
+  ok: true;
+  actions: ActionRecord[];
+};
+
+/* ---------- Fetch helper ---------- */
+
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 async function getJSON<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`GET ${path} ${res.status}`);
-  return res.json() as Promise<T>;
+  return (await res.json()) as T;
 }
+
+/* ---------- Hook ---------- */
 
 export function useAnalytics() {
   const [overview, setOverview] = useState<Overview | null>(null);
-  const [geo, setGeo] = useState<{ ok: true; geo: { location: string; sessions: number; uniqueUsers: number }[] } | null>(null);
-  const [devices, setDevices] = useState<{ ok: true; devices: { label: string; count: number }[] } | null>(null);
-  const [actions, setActions] = useState<{ ok: true; actions: any[] } | null>(null);
+  const [geo, setGeo] = useState<GeoResp | null>(null);
+  const [devices, setDevices] = useState<DevicesResp | null>(null);
+  const [actions, setActions] = useState<ActionsResp | null>(null);
   const [connected, setConnected] = useState(false);
+
   const esRef = useRef<EventSource | null>(null);
   const pollRef = useRef<number | null>(null);
 
@@ -39,11 +82,14 @@ export function useAnalytics() {
       try {
         const [o, g, d, a] = await Promise.all([
           getJSON<Overview>("/api/analytics/overview"),
-          getJSON<{ ok: true; geo: { location: string; sessions: number; uniqueUsers: number }[] }>("/api/analytics/geo"),
-          getJSON<{ ok: true; devices: { label: string; count: number }[] }>("/api/analytics/devices"),
-          getJSON<{ ok: true; actions: any[] }>("/api/analytics/actions"),
+          getJSON<GeoResp>("/api/analytics/geo"),
+          getJSON<DevicesResp>("/api/analytics/devices"),
+          getJSON<ActionsResp>("/api/analytics/actions"),
         ]);
-        setOverview(o); setGeo(g); setDevices(d); setActions(a);
+        setOverview(o);
+        setGeo(g);
+        setDevices(d);
+        setActions(a);
       } catch (e) {
         console.warn("initial analytics fetch failed", e);
       }
@@ -54,46 +100,66 @@ export function useAnalytics() {
       const es = new EventSource(`${API}/api/analytics/stream`);
       esRef.current = es;
 
-      let opened = false; // avoid stale state in setTimeout
+      let opened = false;
 
-      es.onopen = () => { opened = true; setConnected(true); };
+      es.onopen = () => {
+        opened = true;
+        setConnected(true);
+      };
 
-      es.addEventListener("overview", (ev) => {
+      // Expect the server to send an "overview" event whose data serializes a partial Overview
+      es.addEventListener("overview", (ev: MessageEvent<string>) => {
         try {
-          const data = JSON.parse((ev as MessageEvent).data);
-          setOverview((prev) => ({ ...(prev ?? ({} as any)), ...data }));
-        } catch {}
+          const data = JSON.parse(ev.data) as Partial<Overview>;
+          setOverview((prev) => ({ ...(prev ?? ({} as Overview)), ...(data as Overview) }));
+        } catch {
+          /* ignore parse errors */
+        }
       });
 
-      // fallback polling if SSE disconnects
       const startPoll = () => {
         if (pollRef.current) return;
         pollRef.current = window.setInterval(async () => {
           try {
             const o = await getJSON<Overview>("/api/analytics/overview");
             setOverview(o);
-          } catch {}
+          } catch {
+            /* ignore */
+          }
         }, 5000);
       };
 
-      // single onerror handler (don’t set it twice)
       es.onerror = () => {
         setConnected(false);
-        try { es.close(); } catch {}
+        try {
+          es.close();
+        } catch {
+          /* ignore */
+        }
         startPoll();
       };
 
-      // also start poll if SSE fails immediately to open
       setTimeout(() => {
         if (!opened) {
-          try { es.close(); } catch {}
+          try {
+            es.close();
+          } catch {
+            /* ignore */
+          }
           startPoll();
         }
       }, 3000);
 
       return () => {
-        try { es.close(); } catch {}
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        try {
+          es.close();
+        } catch {
+          /* ignore */
+        }
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
       };
     } catch {
       // browsers without SSE: poll
@@ -101,16 +167,20 @@ export function useAnalytics() {
         try {
           const o = await getJSON<Overview>("/api/analytics/overview");
           setOverview(o);
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       }, 5000);
-      return () => { if (pollRef.current) clearInterval(pollRef.current); };
+      return () => {
+        if (pollRef.current) clearInterval(pollRef.current);
+      };
     }
   }, []);
 
   const refreshTab = async (tab: "geo" | "devices" | "actions") => {
-    if (tab === "geo") setGeo(await getJSON("/api/analytics/geo"));
-    if (tab === "devices") setDevices(await getJSON("/api/analytics/devices"));
-    if (tab === "actions") setActions(await getJSON("/api/analytics/actions"));
+    if (tab === "geo") setGeo(await getJSON<GeoResp>("/api/analytics/geo"));
+    if (tab === "devices") setDevices(await getJSON<DevicesResp>("/api/analytics/devices"));
+    if (tab === "actions") setActions(await getJSON<ActionsResp>("/api/analytics/actions"));
   };
 
   return { overview, geo, devices, actions, connected, refreshTab };

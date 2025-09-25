@@ -1,7 +1,13 @@
 // src\components\dashboard\ActionsPanel.tsx
 "use client";
 
-export default function ActionsPanel({ data }: { data: any[] }) {
+import type { ActionRecord } from "./useAnalytics";
+
+type ActionsPanelProps = {
+  data: ActionRecord[];
+};
+
+export default function ActionsPanel({ data }: ActionsPanelProps) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
       <div className="text-sm mb-4 opacity-80">Recent Actions</div>
