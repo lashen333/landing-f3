@@ -15,7 +15,7 @@ export default function Page() {
       <StickyHeader />
       <Hero
         eyebrow="Your Sound.Your Stage."
-        title="Turn Lsteners into Fans"
+        title="Turn Listeners into Fans"
         subheading="Smart landing pages for musicians,producers & studios — showcase tracks, capture leads, and book gigs."
         ctaText="Book a Free Demo"
         ctaHref="#contact"
