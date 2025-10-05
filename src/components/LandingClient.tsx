@@ -1,4 +1,4 @@
-// src/components/LandingClient.tsx
+// src\components\LandingClient.tsx
 "use client";
 
 import { useCallback, useState } from "react";
@@ -10,16 +10,15 @@ import ContactForm from "@/components/ContactForm";
 import UTMInit from "@/components/UTMInit";
 import BehaviorTracker from "@/components/BehaviorTracker";
 import VariantLoader from "@/components/VariantLoader";
+import type { LandingVariant } from "@/types/variant";
 
-type Variant = {
-  _id: string; name: string; heroTitle: string; heroSub: string; ctaText: string; ctaHref: string;
-};
+type Props = { initialVariant: LandingVariant | null };
 
-export default function LandingClient({ initialVariant }: { initialVariant: Variant | null }) {
-  const [variant, setVariant] = useState<Variant | null>(initialVariant);
+export default function LandingClient({ initialVariant }: Props) {
+  const [variant, setVariant] = useState<LandingVariant | null>(initialVariant);
 
   // ✅ stable function; also no-op if nothing actually changes
-  const handleLoaded = useCallback((v: Variant | null) => {
+  const handleLoaded = useCallback((v: LandingVariant | null) => {
     setVariant((prev) => (prev?._id === v?._id ? prev : v));
   }, []);
 

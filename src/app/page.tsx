@@ -1,6 +1,8 @@
-// src/app/page.tsx
+// src\app\page.tsx
 import LandingClient from "@/components/LandingClient";
 import { cookies } from "next/headers";
+import type{ Variant } from "@/types/variant";
+import type { LandingVariant } from "@/types/variant";
 
 // No caching for SSR variant assignment:
 export const dynamic = "force-dynamic";
@@ -16,7 +18,7 @@ export default async function Page({ searchParams }: { searchParams: SP }) {
   const cookieStore = await cookies();
   const sid = cookieStore.get("sid")?.value;
 
-  let initialVariant: any = null;
+  let initialVariant: LandingVariant | null = null;
 
   if (sid) {
     const forceName =
