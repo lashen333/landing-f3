@@ -24,15 +24,20 @@ export default function UTMInit(){
             sid = (globalThis.crypto?.randomUUID?.()??Math.random().toString(36).slice(2));
             sessionStorage.setItem("sid",sid);
         }
+
+        const variantRaw = sessionStorage.getItem("variant");
+        const variant = variantRaw ? JSON.parse(variantRaw) : undefined;
+
         const utm = getUTMsFromUrl();
         const payload = {
-            sessionId:sid,
+            sessionId: sid,
             utm,
             pageUrl:window.location.href,
             referrer:document.referrer || undefined,
+            variant: variant ? {_id: variant._id, name: variant.name} : undefined
         };
 
-        const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+        const API = process.env.NEXT_PUBLIC_API_URL ;
 
         // fire and forget; no need to block UI
         fetch(`${API}/api/sessions/start`,{

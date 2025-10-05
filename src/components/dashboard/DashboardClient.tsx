@@ -9,10 +9,11 @@ import GeoPanel from "./GeoPanel";
 import DevicesPanel from "./DevicesPanel";
 import ActionsPanel from "./ActionsPanel";
 import CampaignsPanel from "./CampaignsPanel";
+import VariantsPanel from "./VariantsPanel";
 
 export default function DashboardClient() {
   const [open, setOpen] = useState(true);
-  const [tab, setTab] = useState<"overview" | "geo" | "devices" | "actions" | "campaigns">("overview");
+  const [tab, setTab] = useState<"overview" | "geo" | "devices" | "actions" | "campaigns" | "variants">("overview");
   const { overview, geo, devices, actions, connected, refreshTab } = useAnalytics();
 
 
@@ -41,6 +42,9 @@ export default function DashboardClient() {
             {/* you can pick an icon you like; reuse BarChart3 or similar */}
             <BarChart3 size={18} /> {open && "Campaigns"}
           </button>
+          <button onClick={() => setTab("variants")} className={`w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-white/10 ${tab==="variants"?"bg-white/10":""}`}>
+            <BarChart3 size={18}/> {open && "Variants"}
+          </button>
         </nav>
       </aside>
 
@@ -51,6 +55,7 @@ export default function DashboardClient() {
         {tab === "devices" && <DevicesPanel data={devices?.devices ?? []} />}
         {tab === "actions" && <ActionsPanel data={actions?.actions ?? []} />}
         {tab === "campaigns" && <CampaignsPanel/>}
+        {tab === "variants" && <VariantsPanel/>}
       </main>
     </div>
   );
