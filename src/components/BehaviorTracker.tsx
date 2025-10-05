@@ -1,22 +1,29 @@
-// src\components\BehaviorTracker.tsx
+// src/components/BehaviorTracker.tsx
 "use client";
 
 import { useEffect, useRef } from "react";
 
+/* ---- stable section ids + types ---- */
+const OBSERVED_IDS = ["hero", "services", "contact"] as const;
+type SectionId = typeof OBSERVED_IDS[number];
+const isObserved = (id: string): id is SectionId =>
+  (OBSERVED_IDS as readonly string[]).includes(id);
+
+/* ---- events ---- */
 type ActionInput = {
-  section: string;
+  section: SectionId;
   event: "CTA_Click" | "SectionEnter" | "SectionExit" | "SectionTime" | "Scrolled" | "ReachedEnd";
   timeSpent?: number;
   timestamp?: string;
 };
 
-// ✅ SSR-safe: only use sessionStorage in the browser
+/* ---- SSR-safe session id ---- */
 function getSessionIdSafe(): string | null {
   if (typeof window === "undefined") return null;
   try {
     let sid = window.sessionStorage.getItem("sid");
     if (!sid) {
-      sid = (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
+      sid = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
       window.sessionStorage.setItem("sid", sid);
     }
     return sid;
@@ -26,7 +33,7 @@ function getSessionIdSafe(): string | null {
 }
 
 async function postActions(sessionId: string, actions: ActionInput[]) {
-  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const API = process.env.NEXT_PUBLIC_API_URL ;
   try {
     const res = await fetch(`${API}/api/sessions/${encodeURIComponent(sessionId)}/actions`, {
       method: "POST",
@@ -41,22 +48,22 @@ async function postActions(sessionId: string, actions: ActionInput[]) {
 }
 
 export default function BehaviorTracker() {
-  // ✅ Don’t call sessionStorage here; set it in useEffect
   const sessionIdRef = useRef<string | null>(null);
-  const enterTimeRef = useRef<Record<string, number>>({});
-  const visibleRef = useRef<Set<string>>(new Set());
-  const observedIds = ["hero", "services", "contact"];
+  const enterTimeRef = useRef<Partial<Record<SectionId, number>>>({});
+  const visibleRef = useRef<Set<SectionId>>(new Set());
 
   useEffect(() => {
-    // ✅ Now we’re in the browser: safe to use sessionStorage
     const sid = getSessionIdSafe();
-    if (!sid) return; // storage unavailable; skip tracking
+    if (!sid) return;
     sessionIdRef.current = sid;
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          const sectionId = (entry.target as HTMLElement).id || "unknown";
+          const id = (entry.target as HTMLElement).id || "";
+          if (!isObserved(id)) return; // ignore anything we don't track
+          const sectionId = id; // narrowed to SectionId
+
           if (entry.isIntersecting) {
             visibleRef.current.add(sectionId);
             enterTimeRef.current[sectionId] = Date.now();
@@ -66,12 +73,7 @@ export default function BehaviorTracker() {
             if (started) {
               const secs = Math.max(0, Math.round((Date.now() - started) / 1000));
               delete enterTimeRef.current[sectionId];
-              const sidNow = sessionIdRef.current;
-              if (sidNow) {
-                postActions(sidNow, [
-                  { section: sectionId, event: "SectionTime", timeSpent: secs, timestamp: new Date().toISOString() },
-                ]);
-              }
+              postNow([{ section: sectionId, event: "SectionTime", timeSpent: secs, timestamp: new Date().toISOString() }]);
             }
           }
         });
@@ -80,27 +82,22 @@ export default function BehaviorTracker() {
     );
 
     // Observe sections
-    observedIds.forEach((id) => {
+    OBSERVED_IDS.forEach((id) => {
       const el = document.getElementById(id);
       if (el) observer.observe(el);
     });
 
-    // CTA click tracking
+    // CTA click tracking (hero)
     const cta = document.querySelector('[data-cta="hero-cta"]');
     const onCta = () => {
       const started = enterTimeRef.current["hero"];
-      const sidNow = sessionIdRef.current;
-      if (!sidNow) return;
       const timeSpent = started ? Math.max(0, Math.round((Date.now() - started) / 1000)) : undefined;
-      // ✅ keep section id consistent with observedIds
-      postActions(sidNow, [{ section: "hero", event: "CTA_Click", timeSpent, timestamp: new Date().toISOString() }]);
+      postNow([{ section: "hero", event: "CTA_Click", timeSpent, timestamp: new Date().toISOString() }]);
     };
     cta?.addEventListener("click", onCta);
 
     // Flush on unload
     const onUnload = () => {
-      const sidNow = sessionIdRef.current;
-      if (!sidNow) return;
       const pending: ActionInput[] = [];
       for (const sectionId of Array.from(visibleRef.current)) {
         const started = enterTimeRef.current[sectionId];
@@ -112,13 +109,17 @@ export default function BehaviorTracker() {
       if (pending.length && typeof navigator !== "undefined" && navigator.sendBeacon) {
         const url =
           (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000") +
-          // ✅ plural “sessions”
-          `/api/sessions/${encodeURIComponent(sidNow)}/actions`;
+          `/api/sessions/${encodeURIComponent(sessionIdRef.current!)}/actions`;
         navigator.sendBeacon(url, new Blob([JSON.stringify({ actions: pending })], { type: "application/json" }));
       }
     };
     window.addEventListener("pagehide", onUnload);
     window.addEventListener("beforeunload", onUnload);
+
+    function postNow(actions: ActionInput[]) {
+      const sidNow = sessionIdRef.current;
+      if (sidNow) postActions(sidNow, actions);
+    }
 
     return () => {
       observer.disconnect();
@@ -126,7 +127,7 @@ export default function BehaviorTracker() {
       window.removeEventListener("pagehide", onUnload);
       window.removeEventListener("beforeunload", onUnload);
     };
-  }, []);
+  }, []); // ✅ no observedIds dependency
 
   return null;
 }

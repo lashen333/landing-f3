@@ -1,7 +1,6 @@
 // src\app\page.tsx
 import LandingClient from "@/components/LandingClient";
 import { cookies } from "next/headers";
-import type{ Variant } from "@/types/variant";
 import type { LandingVariant } from "@/types/variant";
 
 // No caching for SSR variant assignment:

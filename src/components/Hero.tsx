@@ -2,6 +2,7 @@
 "use client";
 
 import {motion} from "framer-motion";
+import Image from "next/image";
 
 type Props = {
   id?:string;
@@ -73,7 +74,7 @@ export default function Hero({
            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut"}}
            className="flex justify-center"
            >
-            <img
+            <Image
               src="/hero-music.svg"
               alt="Music studio illustration"
               className="w-56 sm:w-64 md:w-[90%] md:max-w-md"

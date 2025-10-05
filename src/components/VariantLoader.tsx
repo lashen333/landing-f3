@@ -1,23 +1,23 @@
-// src/components/VariantLoader.tsx
 "use client";
 
 import { useEffect, useRef } from "react";
 import type { LandingVariant } from "@/types/variant";
 
-// Keep API stable (prevents react-hooks/exhaustive-deps warning)
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-type AssignRes = { ok: boolean; variant: LandingVariant | null };
+// Accept unknown JSON and narrow it ourselves (no `any`)
+type AssignRes = { ok: boolean; variant: unknown };
 
-function asLandingVariant(x: any): LandingVariant | null {
-  if (!x) return null;
+function asLandingVariant(x: unknown): LandingVariant | null {
+  if (!x || typeof x !== "object") return null;
+  const o = x as Record<string, unknown>;
   return {
-    _id: String(x._id),
-    name: String(x.name),
-    heroTitle: String(x.heroTitle),
-    heroSub: x.heroSub ?? null,
-    ctaText: String(x.ctaText),
-    ctaHref: String(x.ctaHref),
+    _id: String(o._id ?? ""),
+    name: String(o.name ?? ""),
+    heroTitle: String(o.heroTitle ?? ""),
+    heroSub: typeof o.heroSub === "string" ? o.heroSub : null,
+    ctaText: String(o.ctaText ?? ""),
+    ctaHref: String(o.ctaHref ?? ""),
   };
 }
 
@@ -28,7 +28,7 @@ export default function VariantLoader({
   onLoaded: (v: LandingVariant | null) => void;
   disabled?: boolean;
 }) {
-  // ✅ keep a stable reference to the callback
+  // keep a stable reference to the callback
   const onLoadedRef = useRef(onLoaded);
   useEffect(() => {
     onLoadedRef.current = onLoaded;
@@ -46,11 +46,11 @@ export default function VariantLoader({
       sessionStorage.setItem("sid", sid);
     }
 
-    // Pre-seed from cache (use landing subset only)
+    // Pre-seed from cache
     try {
       const cached = sessionStorage.getItem("variant");
       if (cached && !cancelled) {
-        const parsed = JSON.parse(cached);
+        const parsed: unknown = JSON.parse(cached);
         onLoadedRef.current(asLandingVariant(parsed));
       }
     } catch {
@@ -70,11 +70,10 @@ export default function VariantLoader({
           keepalive: true,
         });
 
-        // If server errors, fall back to null
         if (!res.ok) throw new Error(await res.text());
 
         const json = (await res.json()) as AssignRes;
-        const variant = asLandingVariant(json?.variant);
+        const variant = asLandingVariant(json.variant);
 
         if (cancelled) return;
 
