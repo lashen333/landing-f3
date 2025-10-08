@@ -1,12 +1,19 @@
-// src\components\dashboard\GeoMap.tsx
+// src/components/dashboard/GeoMap.tsx
 "use client";
 
 import { useMemo, useRef, useState } from "react";
 import { geoNaturalEarth1, geoPath, type GeoProjection } from "d3-geo";
 import { feature } from "topojson-client";
-import type { FeatureCollection, Feature, Geometry } from "geojson";
-import type { Topology, GeometryCollection } from "topojson-specification";
-// TopoJSON -> convert to GeoJSON with topojson-client
+import type {
+  FeatureCollection,
+  Feature,
+  Geometry,
+  GeoJsonProperties,
+} from "geojson";
+import type {
+  Topology,
+  GeometryCollection,
+} from "topojson-specification";
 import world110m from "world-atlas/countries-110m.json";
 
 export type GeoPoint = {
@@ -18,57 +25,53 @@ export type GeoPoint = {
   users: number;
 };
 
-// Internal: world-atlas json shape
-type WorldTopo = {
-  type: string;
-  objects: { countries: any };
-  arcs: any[];
-  transform: any;
-};
+type World110m = Topology<{
+  countries: GeometryCollection<GeoJsonProperties>;
+}>;
 
 const VIEW_W = 960;
 const VIEW_H = 520;
 
 export default function GeoMap({ points }: { points: GeoPoint[] }) {
-  // filter invalid points
+  // 1) Filter invalid points
   const filtered = useMemo(
     () => points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon)),
     [points]
   );
 
-  // sqrt-sized bubbles
+  // 2) Bubble size (sqrt scale)
   const maxS = Math.max(1, ...filtered.map((d) => d.sessions));
   const r = (s: number) => 2 + 10 * Math.sqrt(s / maxS);
 
-  // Countries as GeoJSON
+  // 3) Countries: TopoJSON -> GeoJSON, fully typed
   const countries = useMemo(() => {
-  // 1) Type the Topology shape from world-atlas
-  type World110m = Topology<{ countries: GeometryCollection }>;
-  const topo = world110m as unknown as World110m;
+    const topo = world110m as unknown as World110m;
 
-  // 2) Convert TopoJSON -> GeoJSON
-  // feature() returns a union; go via `unknown` to the concrete FeatureCollection we know it is.
-  const fc = feature(
-    topo as unknown as Topology,                       // topology
-    topo.objects.countries as unknown as GeometryCollection // object within topology
-  ) as unknown as FeatureCollection<Geometry, any>;
+    // Because “object” is a GeometryCollection, feature(...) returns a FeatureCollection
+    const fc = feature(
+      topo as Topology, // topology
+      topo.objects.countries as GeometryCollection<GeoJsonProperties> // object
+    ) as FeatureCollection<Geometry, GeoJsonProperties>;
 
-  // 3) Return the list of country features
-  return fc.features as Feature<Geometry, any>[];
-}, []);
-  // Projection + path
+    return fc.features as Feature<Geometry, GeoJsonProperties>[];
+  }, []);
+
+  // 4) Projection/path
   const projection = useMemo<GeoProjection>(() => {
     const p = geoNaturalEarth1();
-    p.fitSize([VIEW_W, VIEW_H], {
-      type: "FeatureCollection",
-      features: countries,
-    } as any);
+    p.fitSize(
+      [VIEW_W, VIEW_H],
+      { type: "FeatureCollection", features: countries } as FeatureCollection<
+        Geometry,
+        GeoJsonProperties
+      >
+    );
     return p;
   }, [countries]);
 
   const path = useMemo(() => geoPath(projection), [projection]);
 
-  // ---- pan & zoom ----
+  // 5) Pan & zoom
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
   const dragRef = useRef<{ x: number; y: number } | null>(null);
@@ -81,7 +84,7 @@ export default function GeoMap({ points }: { points: GeoPoint[] }) {
     const mx = ((ev.clientX - rect.left) / rect.width) * VIEW_W;
     const my = ((ev.clientY - rect.top) / rect.height) * VIEW_H;
     return { mx, my };
-    };
+  };
 
   const onWheel: React.WheelEventHandler<SVGSVGElement> = (e) => {
     e.preventDefault();
@@ -109,7 +112,7 @@ export default function GeoMap({ points }: { points: GeoPoint[] }) {
   };
   const endDrag = () => (dragRef.current = null);
 
-  // tooltip
+  // 6) Tooltip
   const [tooltip, setTooltip] = useState<string | null>(null);
 
   return (
@@ -127,7 +130,6 @@ export default function GeoMap({ points }: { points: GeoPoint[] }) {
         onMouseUp={endDrag}
         style={{ touchAction: "none", cursor: dragRef.current ? "grabbing" : "grab" }}
       >
-        {/* pan/zoom container */}
         <g transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
           {/* countries */}
           <g>
