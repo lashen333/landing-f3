@@ -1,3 +1,4 @@
+// src\components\dashboard\useAnalytics.ts
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -63,6 +64,13 @@ async function getJSON<T>(path: string): Promise<T> {
   if (!res.ok) throw new Error(`GET ${path} ${res.status}`);
   return (await res.json()) as T;
 }
+
+export async function fetchGeoPoints() {
+  const res = await fetch(`${API}/api/analytics/geo/points`, { cache: "no-store" });
+  if (!res.ok) throw new Error("geo points failed");
+  return res.json() as Promise<{ ok: true; points: { country?: string; city?: string; lat: number; lon: number; sessions: number; users: number }[] }>;
+}
+
 
 /* ---------- Hook ---------- */
 

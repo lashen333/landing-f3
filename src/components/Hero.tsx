@@ -77,6 +77,8 @@ export default function Hero({
             <Image
               src="/hero-music.svg"
               alt="Music studio illustration"
+              width={400}
+              height={400}
               className="w-56 sm:w-64 md:w-[90%] md:max-w-md"
               />
            </motion.div>

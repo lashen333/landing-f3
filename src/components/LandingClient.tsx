@@ -11,6 +11,7 @@ import UTMInit from "@/components/UTMInit";
 import BehaviorTracker from "@/components/BehaviorTracker";
 import VariantLoader from "@/components/VariantLoader";
 import type { LandingVariant } from "@/types/variant";
+import GeoInit from "@/components/GeoInit";
 
 type Props = { initialVariant: LandingVariant | null };
 
@@ -26,6 +27,7 @@ export default function LandingClient({ initialVariant }: Props) {
     <>
       <VariantLoader onLoaded={handleLoaded} disabled={!!initialVariant} />
       <UTMInit />
+      <GeoInit />
       <BehaviorTracker />
       <StickyHeader />
 
