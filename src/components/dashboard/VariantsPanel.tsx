@@ -1,4 +1,4 @@
-// src/components/dashboard/VariantsPanel.tsx
+// src\components\dashboard\VariantsPanel.tsx
 "use client";
 
 import { useCallback, useEffect, useState } from "react";

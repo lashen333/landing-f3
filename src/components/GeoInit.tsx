@@ -19,7 +19,7 @@ export default function GeoInit() {
         fetch(`${API}/api/sessions/${encodeURIComponent(sid)}/geo`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lat: latitude, lon: longitude }),
+          body: JSON.stringify({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
           keepalive: true,
         }).finally(() => {
           sessionStorage.setItem("geo_done", "1");

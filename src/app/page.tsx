@@ -9,7 +9,7 @@ export const revalidate = 0;
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL;
 
 export default async function Page({ searchParams }: { searchParams: SP }) {
   // ✅ Next 15: await dynamic APIs
