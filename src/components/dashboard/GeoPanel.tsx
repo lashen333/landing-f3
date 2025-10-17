@@ -1,10 +1,12 @@
-// src/components/dashboard/GeoPanel.tsx
+// src\components\dashboard\GeoPanel.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import GeoChoropleth from "./GeoChoropleth";
-import GeoLeaflet from "./GeoLeaflet";
+import dynamic from "next/dynamic";
 import { fetchGeoPoints } from "./useAnalytics";
+
+const GeoLeaflet = dynamic(() => import("./GeoLeaflet"), { ssr: false });
 
 type TableRow = { location: string; sessions: number; uniqueUsers: number };
 type Point = { country?: string; city?: string; lat: number; lon: number; sessions: number; users: number };
